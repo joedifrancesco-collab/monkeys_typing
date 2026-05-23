@@ -3,8 +3,17 @@ from __future__ import annotations
 import io
 import itertools
 import unittest
+from unittest.mock import patch
 
-from monkeys_typing.cli import analyze_text, generate_monkey_text, get_character_pool, run_batched_simulation
+from monkeys_typing.cli import (
+    MAX_CHARACTER_COUNT,
+    MIN_CHARACTER_COUNT,
+    analyze_text,
+    generate_monkey_text,
+    get_character_pool,
+    prompt_character_count,
+    run_batched_simulation,
+)
 
 
 class AnalyzeTextTests(unittest.TestCase):
@@ -58,6 +67,20 @@ class GenerateMonkeyTextTests(unittest.TestCase):
         self.assertEqual(text, "abc")
         self.assertEqual(stream.getvalue(), "abc")
 
+    def test_generate_monkey_text_can_skip_rendering(self) -> None:
+        characters = iter("abc")
+
+        text = generate_monkey_text(
+            3,
+            character_pool="abc",
+            render_output=False,
+            newline_interval=0,
+            typing_delay=0.0,
+            random_choice=lambda pool: next(characters),
+        )
+
+        self.assertEqual(text, "abc")
+
 
 class BatchedSimulationTests(unittest.TestCase):
     def test_run_batched_simulation_aggregates_unique_results(self) -> None:
@@ -110,6 +133,42 @@ class BatchedSimulationTests(unittest.TestCase):
 
         self.assertEqual(analyzer_calls[0], "abcde")
         self.assertEqual(analyzer_calls[1], "defghij")
+
+    def test_run_batched_simulation_can_resume_from_initial_state(self) -> None:
+        char_stream = iter("klmnopqrst")
+
+        words, phrases, sentences, generation_seconds, analysis_seconds = run_batched_simulation(
+            character_count=10,
+            character_pool="abc",
+            batch_size=5,
+            stream=io.StringIO(),
+            newline_interval=0,
+            flush_interval=0,
+            random_choice=lambda pool: next(char_stream),
+            analyzer=lambda text: (["resume"], [], []),
+            show_batch_progress=False,
+            initial_processed=5,
+            initial_words=["existing"],
+            initial_phrases=["existing phrase"],
+            initial_sentences=["existing sentence."],
+            initial_generation_seconds=1.0,
+            initial_analysis_seconds=2.0,
+            initial_carry_text="abc",
+        )
+
+        self.assertEqual(words, ["existing", "resume"])
+        self.assertEqual(phrases, ["existing phrase"])
+        self.assertEqual(sentences, ["existing sentence."])
+        self.assertGreaterEqual(generation_seconds, 1.0)
+        self.assertGreaterEqual(analysis_seconds, 2.0)
+
+
+class PromptTests(unittest.TestCase):
+    def test_prompt_character_count_accepts_max_limit(self) -> None:
+        with patch("builtins.input", side_effect=[str(MIN_CHARACTER_COUNT - 1), str(MAX_CHARACTER_COUNT)]):
+            result = prompt_character_count()
+
+        self.assertEqual(result, MAX_CHARACTER_COUNT)
 
 
 if __name__ == "__main__":
