@@ -23,23 +23,21 @@ class AnalyzeTextTests(unittest.TestCase):
             "a an to be. hello there!"
         )
 
-        words, phrases, sentences = analyze_text(text)
+        words, phrases = analyze_text(text)
 
         self.assertEqual(
             words,
             ["hello", "there", "bar", "monkey", "typing", "here"],
         )
         self.assertEqual(phrases, ["hello there", "monkey typing here"])
-        self.assertEqual(sentences, ["hello there!", "monkey typing here."])
 
     def test_analyze_text_deduplicates_results(self) -> None:
         text = "hello there! hello there! monkey typing. monkey typing."
 
-        words, phrases, sentences = analyze_text(text)
+        words, phrases = analyze_text(text)
 
         self.assertEqual(words, ["hello", "there", "monkey", "typing"])
         self.assertEqual(phrases, ["hello there", "monkey typing"])
-        self.assertEqual(sentences, ["hello there!", "monkey typing."])
 
     def test_get_character_pool(self) -> None:
         import string
@@ -87,13 +85,13 @@ class BatchedSimulationTests(unittest.TestCase):
         char_stream = itertools.cycle("abc")
         analyzer_calls: list[str] = []
 
-        def fake_analyzer(text: str) -> tuple[list[str], list[str], list[str]]:
+        def fake_analyzer(text: str) -> tuple[list[str], list[str]]:
             analyzer_calls.append(text)
             if len(analyzer_calls) == 1:
-                return ["alpha", "beta"], ["alpha beta"], []
-            return ["beta", "gamma"], ["beta gamma"], ["beta gamma."]
+                return ["alpha", "beta"], ["alpha beta"]
+            return ["beta", "gamma"], ["beta gamma"]
 
-        words, phrases, sentences, _, _ = run_batched_simulation(
+        words, phrases, _, _ = run_batched_simulation(
             character_count=15,
             character_pool="abc",
             batch_size=10,
@@ -108,15 +106,14 @@ class BatchedSimulationTests(unittest.TestCase):
         self.assertEqual(len(analyzer_calls), 2)
         self.assertEqual(words, ["alpha", "beta", "gamma"])
         self.assertEqual(phrases, ["alpha beta", "beta gamma"])
-        self.assertEqual(sentences, ["beta gamma."])
 
     def test_run_batched_simulation_uses_overlap_between_batches(self) -> None:
         char_stream = iter("abcdefghij")
         analyzer_calls: list[str] = []
 
-        def fake_analyzer(text: str) -> tuple[list[str], list[str], list[str]]:
+        def fake_analyzer(text: str) -> tuple[list[str], list[str]]:
             analyzer_calls.append(text)
-            return [], [], []
+            return [], []
 
         run_batched_simulation(
             character_count=10,
@@ -137,7 +134,7 @@ class BatchedSimulationTests(unittest.TestCase):
     def test_run_batched_simulation_can_resume_from_initial_state(self) -> None:
         char_stream = iter("klmnopqrst")
 
-        words, phrases, sentences, generation_seconds, analysis_seconds = run_batched_simulation(
+        words, phrases, generation_seconds, analysis_seconds = run_batched_simulation(
             character_count=10,
             character_pool="abc",
             batch_size=5,
@@ -145,12 +142,11 @@ class BatchedSimulationTests(unittest.TestCase):
             newline_interval=0,
             flush_interval=0,
             random_choice=lambda pool: next(char_stream),
-            analyzer=lambda text: (["resume"], [], []),
+            analyzer=lambda text: (["resume"], []),
             show_batch_progress=False,
             initial_processed=5,
             initial_words=["existing"],
             initial_phrases=["existing phrase"],
-            initial_sentences=["existing sentence."],
             initial_generation_seconds=1.0,
             initial_analysis_seconds=2.0,
             initial_carry_text="abc",
@@ -158,7 +154,6 @@ class BatchedSimulationTests(unittest.TestCase):
 
         self.assertEqual(words, ["existing", "resume"])
         self.assertEqual(phrases, ["existing phrase"])
-        self.assertEqual(sentences, ["existing sentence."])
         self.assertGreaterEqual(generation_seconds, 1.0)
         self.assertGreaterEqual(analysis_seconds, 2.0)
 

@@ -250,7 +250,7 @@ def generate_monkey_text(
     return "".join(generated_characters)
 
 
-def analyze_text(text: str) -> tuple[list[str], list[str], list[str]]:
+def analyze_text(text: str) -> tuple[list[str], list[str]]:
     candidate_words = re.findall(r"[A-Za-z]{2,}", text)
     words = [word for word in candidate_words if _is_english_word(word)]
 
@@ -265,21 +265,9 @@ def analyze_text(text: str) -> tuple[list[str], list[str], list[str]]:
         ):
             phrase_candidates.append(phrase)
 
-    sentence_candidates: list[str] = []
-    for match in re.finditer(r"[^.!?]{8,}[.!?]", text):
-        sentence = " ".join(match.group(0).split())
-        sentence_words = re.findall(r"[A-Za-z]{2,}", sentence)
-        if (
-            len(sentence_words) >= 2
-            and all(_is_english_word(word) for word in sentence_words)
-            and any(_is_content_word(word) for word in sentence_words)
-        ):
-            sentence_candidates.append(sentence)
-
     unique_words = list(dict.fromkeys(words))
     unique_phrases = list(dict.fromkeys(phrase_candidates))
-    unique_sentences = list(dict.fromkeys(sentence_candidates))
-    return unique_words, unique_phrases, unique_sentences
+    return unique_words, unique_phrases
 
 
 def run_batched_simulation(
@@ -292,18 +280,17 @@ def run_batched_simulation(
     flush_interval: int = 80,
     typing_delay: float = 0.0,
     random_choice: Callable[[str], str] = random.choice,
-    analyzer: Callable[[str], tuple[list[str], list[str], list[str]]] = analyze_text,
+    analyzer: Callable[[str], tuple[list[str], list[str]]] = analyze_text,
     show_batch_progress: bool = True,
     analysis_overlap: int = 64,
     initial_processed: int = 0,
     initial_words: list[str] | None = None,
     initial_phrases: list[str] | None = None,
-    initial_sentences: list[str] | None = None,
     initial_generation_seconds: float = 0.0,
     initial_analysis_seconds: float = 0.0,
     initial_carry_text: str = "",
     on_batch_complete: Callable[[dict[str, object]], None] | None = None,
-) -> tuple[list[str], list[str], list[str], float, float]:
+) -> tuple[list[str], list[str], float, float]:
     if batch_size <= 0:
         raise ValueError("batch_size must be greater than 0")
     if analysis_overlap < 0:
@@ -313,7 +300,6 @@ def run_batched_simulation(
 
     unique_words: dict[str, None] = dict.fromkeys(initial_words or [])
     unique_phrases: dict[str, None] = dict.fromkeys(initial_phrases or [])
-    unique_sentences: dict[str, None] = dict.fromkeys(initial_sentences or [])
     generation_seconds = initial_generation_seconds
     analysis_seconds = initial_analysis_seconds
     processed = initial_processed
@@ -338,15 +324,13 @@ def run_batched_simulation(
 
         analysis_start = time.perf_counter()
         analysis_text = carry_text + chunk_text
-        words, phrases, sentences = analyzer(analysis_text)
+        words, phrases = analyzer(analysis_text)
         analysis_seconds += time.perf_counter() - analysis_start
 
         for word in words:
             unique_words.setdefault(word, None)
         for phrase in phrases:
             unique_phrases.setdefault(phrase, None)
-        for sentence in sentences:
-            unique_sentences.setdefault(sentence, None)
 
         processed += current_batch_size
 
@@ -380,7 +364,6 @@ def run_batched_simulation(
                     "processed": processed,
                     "words": list(unique_words),
                     "phrases": list(unique_phrases),
-                    "sentences": list(unique_sentences),
                     "generation_seconds": generation_seconds,
                     "analysis_seconds": analysis_seconds,
                     "carry_text": carry_text,
@@ -390,13 +373,12 @@ def run_batched_simulation(
     return (
         list(unique_words),
         list(unique_phrases),
-        list(unique_sentences),
         generation_seconds,
         analysis_seconds,
     )
 
 
-def display_results(words: list[str], phrases: list[str], sentences: list[str]) -> None:
+def display_results(words: list[str], phrases: list[str]) -> None:
     print()
     print("Results")
     print("-------")
@@ -416,15 +398,6 @@ def display_results(words: list[str], phrases: list[str], sentences: list[str]) 
             print(f"- {phrase}")
     else:
         print("Possible phrases: none found.")
-
-    print()
-
-    if sentences:
-        print("Possible sentences:")
-        for sentence in sentences[:10]:
-            print(f"- {sentence}")
-    else:
-        print("Possible sentences: none found.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -461,7 +434,6 @@ def main() -> int:
     initial_processed = 0
     initial_words: list[str] = []
     initial_phrases: list[str] = []
-    initial_sentences: list[str] = []
     initial_generation_seconds = 0.0
     initial_analysis_seconds = 0.0
     initial_carry_text = ""
@@ -492,7 +464,6 @@ def main() -> int:
             initial_processed = int(checkpoint_data.get("processed", 0))
             initial_words = list(checkpoint_data.get("words", []))
             initial_phrases = list(checkpoint_data.get("phrases", []))
-            initial_sentences = list(checkpoint_data.get("sentences", []))
             initial_generation_seconds = float(checkpoint_data.get("generation_seconds", 0.0))
             initial_analysis_seconds = float(checkpoint_data.get("analysis_seconds", 0.0))
             initial_carry_text = str(checkpoint_data.get("carry_text", ""))
@@ -539,7 +510,6 @@ def main() -> int:
                     "processed": processed,
                     "words": batch_state["words"],
                     "phrases": batch_state["phrases"],
-                    "sentences": batch_state["sentences"],
                     "generation_seconds": batch_state["generation_seconds"],
                     "analysis_seconds": batch_state["analysis_seconds"],
                     "carry_text": batch_state["carry_text"],
@@ -564,7 +534,7 @@ def main() -> int:
     print()
 
     try:
-        words, phrases, sentences, generation_seconds, analysis_seconds = run_batched_simulation(
+        words, phrases, generation_seconds, analysis_seconds = run_batched_simulation(
             character_count=character_count,
             character_pool=character_pool,
             batch_size=batch_size,
@@ -574,7 +544,6 @@ def main() -> int:
             initial_processed=initial_processed,
             initial_words=initial_words,
             initial_phrases=initial_phrases,
-            initial_sentences=initial_sentences,
             initial_generation_seconds=initial_generation_seconds,
             initial_analysis_seconds=initial_analysis_seconds,
             initial_carry_text=initial_carry_text,
@@ -585,7 +554,7 @@ def main() -> int:
             output_stream.close()
 
     print(f"Analysis complete in {analysis_seconds:.2f}s (generation: {generation_seconds:.2f}s).")
-    display_results(words, phrases, sentences)
+    display_results(words, phrases)
     return 0
 
 

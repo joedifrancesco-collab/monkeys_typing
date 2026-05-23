@@ -31,3 +31,8 @@ Thumbs.db
 
 # Local app artifacts
 *.log
+
+# Checkpoint and output files
+monkey_checkpoint.json*
+monkey_output.txt
+y
