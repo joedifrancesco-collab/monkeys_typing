@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "monkeys-typing"
+version = "0.1.0"
+description = "Monkeys Typing command-line app"
+readme = "readme"
+requires-python = ">=3.10"
+dependencies = ["wordfreq>=3.1.1"]
+
+[project.optional-dependencies]
+test = ["wordfreq>=3.1.1"]
+
+[project.scripts]
+monkeys-typing = "monkeys_typing.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

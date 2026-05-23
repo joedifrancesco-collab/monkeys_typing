@@ -1,1 +1,22 @@
-placeholder
+Monkeys Typing
+
+This repository contains a local command-line Python app inspired by the infinite monkey theorem.
+
+At startup the program shows the title "(Not quite infinite monkeys (only 1 actually) Typing)." and a short description, then asks how many characters the monkey should type.
+
+It also asks which character set to use:
+
+1. Lowercase letters and spaces
+2. Uppercase letters and spaces
+3. Uppercase and lowercase letters and spaces
+4. All characters
+
+The result review only shows likely real English words and phrases, or nothing at all if none are found.
+
+Run it with:
+
+```powershell
+python -m monkeys_typing
+```
+
+The project uses a `src/` layout and is set up for git-based development with the GitHub remote already configured.
